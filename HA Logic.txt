@@ -1,0 +1,73 @@
+Let's build the HA Ineffectiveness module. I am attaching the FSD. And the analysis files which contains the Input files.​‌
+We will first focus on 2.1 first. You will have the logic and the STM for this. Look at the sheet "irr_ear_reporting_partial_dv01" in the STM for the 2.1.​‌
+
+I need to build using the Pyspark. So help me with this. ​‌
+Here is more details:​‌
+
+ALM input tables:(Do not require the Total_dv01 column in the tables while reading)
+
+1. gfdo_dev_catalog.gft_rda_raw.irr_ear_reporting_dv01_fi_raw
+2. gfdo_dev_catalog.gft_rda_raw.irr_ear_reporting_dv01_derivatives_raw
+3. gfdo_dev_catalog.gft_rda_raw.irr_ear_reporting_dv01_liab_post_hp_raw
+
+Other Inputs
+
+gfdo_dev_catalog.gft_rda_raw.irr_ec_forecasting_ifs_fx_rates_raw
+gfdo_dev_catalog.gft_rda_semantic.irr_mapping_heirarchy_mapping_latest
+
+First thing, transpose the columns for the ALM Input tables, 003M, 005M, etc to rows by adding a column "Tenor". and their values into dv01 values.
+ASSET_TYPE	INCEPTION_DATE	PROGRAM_CODE	LEGAL_ID	SECURITY_CURRENCY	Tenor	dv01
+FI	5/1/2026	GH_02	176	AUD	003M	3.5845
+FI	5/1/2026	GH_02	176	CAD	006M	-19.9966
+FI	5/1/2026	GH_02	176	EUR	012M	-25.9869
+FI	5/1/2026	GH_02	176	GBP	024M	-1346.4131
+FI	5/1/2026	GH_02	176	NOK	036M	-1041.634
+FI	5/1/2026	GH_02	176	USD	060M	-484.1355
+FI	5/1/2026	GH_02	391	AUD	084M	-1465.3874
+FI	5/1/2026	GH_02	391	CHF	120M	-18672.0741
+FI	5/1/2026	GH_02	391	EUR	240M	-4128.5692
+
+And Remove the "M" from tenor and convert into year by dividing with 12. for example, 003 would become 0.25
+
+This is the data cleanup and initial transformations.
+
+2.1 
+
+Table (Need 3 ALM tables + heirarchy mapping)
+Data groups on  (Program Code) + (legal id) + (Security_currency)
+
+Derive the Asset Holding using the logic: If program_code IN ( GH_14, GH_09, GH_02) then equal to Bond
+else if program_code = GH_01 then equal to Liability else
+if program_code = MB_01 then equal to Manubank
+
+LLP should be : Direct mapping with beow combination  of legal_id, currency and program_code  defined here.  Use the Hierarchy Mapping Table
+
+Sum_partial_dv01 value Column:
+Total_dv01 = Lookup value of security_currency and program_code & legal_id across 3 ALM Data and for each tenor dv01 value and needs to be sumed up.
+this would give us total_dv01.
+Something like this with other columns as well for Total_dv01:
+
+Term 	 Canada-CAD 	 US-USD 	 MLJ-JPY 	 MLJ-USD 
+				
+				
+ 0.25 	 105.67 	 168.21 	 112.20 	 0.45 
+ 0.50 	 (8.07)	 98.87 	 637.28 	 1.11 
+ 1 	 (32.68)	 (136.80)	 6,137.67 	 2.44 
+ 2 	 (2.53)	 9.92 	 10,303.45 	 3.26 
+ 3 	 (9.80)	 (46.47)	 17,277.84 	 (0.16)
+ 5 	 (11.65)	 (18.87)	 19,198.98 	 4.85 
+ 7 	 (10.25)	 (19.07)	 35,366.01 	 31.56 
+ 10 	 (10.37)	 (18.80)	 68,456.87 	 39.24 
+ 20 	 (10.24)	 (18.47)	 31,185.91 	 (3.58)
+ 30 	 (10.00)	 (18.43)	 35,051.77 	 (79.00
+
+
+Formula for Sum_partial_dv01:
+{ Total_dv01*fx_rate  *(1-tax rate for currency)} where Sum dv01 is derived here 
+
+This should be again for each tenor. Fx Rate for each currency and tax rate for currency and LLP
+
+
+
+fx rate would be from the table: gfdo_dev_catalog.gft_rda_raw.irr_ec_forecasting_ifs_fx_rates_raw
+tax rate would be from : gfdo_dev_catalog.gft_rda_semantic.irr_mapping_heirarchy_mapping_latest
