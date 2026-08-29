@@ -1,0 +1,24 @@
+# Paste under the existing top-level `curation:` key in src/rda/configs/dev.yaml
+# (alongside market_scenarios_curation / factor_scenarios_curation), then mirror
+# into qa.yaml and uat.yaml.
+#
+# Every input table below already exists - these entries only tell the curation
+# notebook where to READ from. No ingestion config changes.
+
+  ha_ineffectiveness_curation:
+    inputs:
+      dv01_fi: ${schema.raw}.${env_table_prefix}${ear_table_prefix}_dv01_fi_raw
+      dv01_derivatives: ${schema.raw}.${env_table_prefix}${ear_table_prefix}_dv01_derivatives_raw
+      dv01_liab_post_hp: ${schema.raw}.${env_table_prefix}${ear_table_prefix}_dv01_liab_post_hp_raw
+      fx_rates: ${schema.raw}.${env_table_prefix}${ec_table_prefix}_ifs_fx_rates_raw
+      heirarchy_mapping_latest: ${schema.semantic}.${env_table_prefix}irr_mapping_heirarchy_mapping_latest
+    watermark_col: "INGESTION_TS"
+    # Columns on irr_ec_forecasting_ifs_fx_rates_raw - confirm before the first run.
+    # BS_RATE = balance sheet (closing), IS_RATE = income statement (average).
+    fx_currency_col: "CURRENCY"
+    fx_rate_col: "BS_RATE"
+    fx_date_col: "DATE"
+    unpivot_table: ${schema.curation}.${env_table_prefix}${ear_table_prefix}_dv01_unpivot
+    unpivot_ext_table_loc: ${adls.curation}/${env_table_prefix}${ear_table_prefix}_dv01_unpivot
+    curation_table: ${schema.curation}.${env_table_prefix}${ear_table_prefix}_partial_dv01
+    curation_ext_table_loc: ${adls.curation}/${env_table_prefix}${ear_table_prefix}_partial_dv01
